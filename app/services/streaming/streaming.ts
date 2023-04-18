@@ -850,6 +850,8 @@ export class StreamingService
     }
 
     if (this.state.recordingStatus === ERecordingState.Offline) {
+      this.outputSettingsService.confirmFilePath();
+
       obs.NodeObs.OBS_service_startRecording();
       return;
     }
