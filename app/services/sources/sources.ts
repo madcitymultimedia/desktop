@@ -4,6 +4,7 @@ import { Subject } from 'rxjs';
 import cloneDeep from 'lodash/cloneDeep';
 import { IObsListOption, TObsValue, IObsListInput } from 'components/obs/inputs/ObsInput';
 import { mutation, StatefulService, ViewHandler } from 'services/core/stateful-service';
+import { InitAfter } from 'services/core';
 import * as obs from '../../../obs-api';
 import { Inject } from 'services/core/injector';
 import namingHelpers from 'util/NamingHelpers';
@@ -41,6 +42,7 @@ import { CustomizationService } from '../customization';
 import { EAvailableFeatures, IncrementalRolloutService } from '../incremental-rollout';
 import { EMonitoringType, EDeinterlaceMode, EDeinterlaceFieldOrder } from '../../../obs-api';
 import { GuestCamService } from 'services/guest-cam';
+import { VideoSettingsService } from 'services/settings-v2';
 
 export { EDeinterlaceMode, EDeinterlaceFieldOrder } from '../../../obs-api';
 
@@ -165,6 +167,7 @@ class SourcesViews extends ViewHandler<ISourcesState> {
   }
 }
 
+@InitAfter('GreenService')
 export class SourcesService extends StatefulService<ISourcesState> {
   static initialState = {
     sources: {},
@@ -190,6 +193,7 @@ export class SourcesService extends StatefulService<ISourcesState> {
   @Inject() private customizationService: CustomizationService;
   @Inject() private incrementalRolloutService: IncrementalRolloutService;
   @Inject() private guestCamService: GuestCamService;
+  @Inject() private videoSettingsService: VideoSettingsService;
 
   sourceDisplayData = SourceDisplayData(); // cache source display data
 
@@ -232,6 +236,7 @@ export class SourcesService extends StatefulService<ISourcesState> {
     propertiesManagerType?: TPropertiesManager;
     deinterlaceMode?: EDeinterlaceMode;
     deinterlaceFieldOrder?: EDeinterlaceFieldOrder;
+    output?: obs.IVideo;
   }) {
     const id = addOptions.id;
     const sourceModel: ISource = {
@@ -261,6 +266,7 @@ export class SourcesService extends StatefulService<ISourcesState> {
 
       deinterlaceMode: addOptions.deinterlaceMode,
       deinterlaceFieldOrder: addOptions.deinterlaceFieldOrder,
+      output: addOptions.output as obs.IVideo,
     };
 
     if (addOptions.isTemporary) {
@@ -350,6 +356,7 @@ export class SourcesService extends StatefulService<ISourcesState> {
       propertiesManagerType: managerType,
       deinterlaceMode: options.deinterlaceMode || EDeinterlaceMode.Disable,
       deinterlaceFieldOrder: options.deinterlaceFieldOrder || EDeinterlaceFieldOrder.Top,
+      output: this.videoSettingsService.contexts.horizontal,
     });
     const source = this.views.getSource(id)!;
     const muted = obsInput.muted;
@@ -604,6 +611,7 @@ export class SourcesService extends StatefulService<ISourcesState> {
   }
 
   private handleSourceCallback(objs: IObsSourceCallbackInfo[]) {
+    console.log('handleSourceCallback ', objs);
     objs.forEach(info => {
       const source = this.views.getSource(info.name);
 
@@ -611,8 +619,13 @@ export class SourcesService extends StatefulService<ISourcesState> {
       if (!source) return;
 
       if (source.width !== info.width || source.height !== info.height) {
-        const size = { id: source.sourceId, width: info.width, height: info.height };
-        this.UPDATE_SOURCE(size);
+        const sizeAndOutput = {
+          id: source.sourceId,
+          width: info.width,
+          height: info.height,
+          output: this.videoSettingsService.contexts.horizontal,
+        };
+        this.UPDATE_SOURCE(sizeAndOutput);
         this.sourceUpdated.next(source.getModel());
       }
       this.updateSourceFlags(source, info.flags);

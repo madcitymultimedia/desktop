@@ -3,7 +3,7 @@ import { IObsListOption, TObsFormData } from 'components/obs/inputs/ObsInput';
 import { WidgetType } from 'services/widgets';
 import { Observable } from 'rxjs';
 import { IAudioSource } from 'services/audio';
-import { EDeinterlaceFieldOrder, EDeinterlaceMode } from 'obs-studio-node';
+import { EDeinterlaceFieldOrder, EDeinterlaceMode, IVideo } from 'obs-studio-node';
 
 export interface ISource {
   sourceId: string;
@@ -20,6 +20,7 @@ export interface ISource {
   propertiesManagerType: TPropertiesManager;
   propertiesManagerSettings?: Dictionary<any>;
   channel?: number;
+  output?: IVideo;
   /**
    * When set to true, all scene items referencing this source
    * will automatically be hidden, regardless of whether they

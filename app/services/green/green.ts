@@ -181,7 +181,7 @@ class GreenViews extends ViewHandler<IGreenServiceState> {
     return this.getPlatformDisplay(platform) === 'horizontal' ? 'landscape' : 'portrait';
   }
 }
-
+@InitAfter('VideoSettingsService')
 export class GreenService extends PersistentStatefulService<IGreenServiceState> {
   @Inject() private scenesService: ScenesService;
   @Inject() private sceneCollectionsService: SceneCollectionsService;

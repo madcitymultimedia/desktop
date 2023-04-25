@@ -1,5 +1,4 @@
 import Vue from 'vue';
-import uniqBy from 'lodash/uniqBy';
 import without from 'lodash/without';
 import { Subject } from 'rxjs';
 import { mutation, StatefulService } from 'services/core/stateful-service';
@@ -12,8 +11,7 @@ import * as obs from '../../../obs-api';
 import { $t } from 'services/i18n';
 import namingHelpers from 'util/NamingHelpers';
 import uuid from 'uuid/v4';
-import { ViewHandler } from 'services/core';
-import { lazyModule } from 'util/lazy-module';
+import { ViewHandler, InitAfter } from 'services/core';
 
 export type TSceneNodeModel = ISceneItem | ISceneItemFolder;
 
@@ -221,6 +219,7 @@ class ScenesViews extends ViewHandler<IScenesState> {
   }
 }
 
+// @InitAfter('GreenService')
 export class ScenesService extends StatefulService<IScenesState> {
   static initialState: IScenesState = {
     activeSceneId: '',

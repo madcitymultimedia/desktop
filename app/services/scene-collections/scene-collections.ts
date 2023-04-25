@@ -1,5 +1,6 @@
 import { Service } from 'services/core/service';
 import { Inject } from 'services/core/injector';
+import { InitAfter } from 'services/core';
 import { SceneCollectionsServerApiService } from 'services/scene-collections/server-api';
 import { RootNode } from './nodes/root';
 import { SourcesNode, ISourceInfo } from './nodes/sources';
@@ -69,6 +70,7 @@ const DEFAULT_COLLECTION_NAME = 'Scenes';
  * - Completely asynchronous
  * - Server side backup
  */
+// @InitAfter('VideoSettingsService')
 export class SceneCollectionsService extends Service implements ISceneCollectionsServiceApi {
   @Inject('SceneCollectionsServerApiService')
   serverApi: SceneCollectionsServerApiService;

@@ -116,6 +116,7 @@ export class VideoSettingsService extends StatefulService<IVideoSetting> {
     this.migrateSettings(display);
     this.contexts[display].video = this.state[display];
 
+    console.log('context established');
     return !!this.contexts[display];
   }
 
