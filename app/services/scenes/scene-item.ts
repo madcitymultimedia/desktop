@@ -28,7 +28,7 @@ import { Rect } from '../../util/rect';
 import { TSceneNodeType } from './scenes';
 import { ServiceHelper, ExecuteInWorkerProcess } from 'services/core';
 import { assertIsDefined } from '../../util/properties-type-guards';
-import { VideoSettingsService } from 'services/settings-v2';
+import { TDisplayType, VideoSettingsService } from 'services/settings-v2';
 /**
  * A SceneItem is a source that contains
  * all of the information about that source, and
@@ -65,6 +65,7 @@ export class SceneItem extends SceneItemNode {
   sceneNodeType: TSceneNodeType = 'item';
 
   output?: obs.IVideo;
+  display?: TDisplayType;
 
   // Some computed attributes
 

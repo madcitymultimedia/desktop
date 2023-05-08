@@ -16,6 +16,7 @@ import { mutation } from './core';
 import { byOS, OS } from 'util/operating-systems';
 import { TcpServerService } from './api/tcp-server';
 import { Subject } from 'rxjs';
+import { TDisplayType, VideoSettingsService } from './settings-v2';
 
 interface IResizeRegion {
   name: string;
@@ -50,6 +51,7 @@ export interface IMouseEvent {
   metaKey: boolean;
   button: number;
   buttons: number;
+  display?: TDisplayType;
 }
 
 export class EditorService extends StatefulService<IEditorServiceState> {
@@ -61,6 +63,7 @@ export class EditorService extends StatefulService<IEditorServiceState> {
   @Inject() private customizationService: CustomizationService;
   @Inject() private editorCommandsService: EditorCommandsService;
   @Inject() private tcpServerService: TcpServerService;
+  @Inject() private videoSettingsService: VideoSettingsService;
 
   /**
    * emit this event when drag or resize have been finished
@@ -72,10 +75,22 @@ export class EditorService extends StatefulService<IEditorServiceState> {
     changingPositionInProgress: false,
   };
 
-  renderedWidth = 0;
-  renderedHeight = 0;
-  renderedOffsetX = 0;
-  renderedOffsetY = 0;
+  renderedWidths = {
+    horizontal: 0,
+    green: 0,
+  };
+  renderedHeights = {
+    horizontal: 0,
+    green: 0,
+  };
+  renderedOffsetXs = {
+    horizontal: 0,
+    green: 0,
+  };
+  renderedOffsetYs = {
+    horizontal: 0,
+    green: 0,
+  };
 
   dragHandler: DragHandler;
   resizeRegion: IResizeRegion;
@@ -84,11 +99,11 @@ export class EditorService extends StatefulService<IEditorServiceState> {
   isCropping: boolean;
   canDrag = true;
 
-  handleOutputResize(region: IRectangle) {
-    this.renderedWidth = region.width;
-    this.renderedHeight = region.height;
-    this.renderedOffsetX = region.x;
-    this.renderedOffsetY = region.y;
+  handleOutputResize(region: IRectangle, display: TDisplayType) {
+    this.renderedWidths[display] = region.width;
+    this.renderedHeights[display] = region.height;
+    this.renderedOffsetXs[display] = region.x;
+    this.renderedOffsetYs[display] = region.y;
   }
 
   /*****************
@@ -131,12 +146,12 @@ export class EditorService extends StatefulService<IEditorServiceState> {
   startDragging(event: IMouseEvent) {
     this.dragHandler = new DragHandler(event, {
       displaySize: {
-        x: this.renderedWidth,
-        y: this.renderedHeight,
+        x: this.renderedWidths[event.display],
+        y: this.renderedHeights[event.display],
       },
       displayOffset: {
-        x: this.renderedOffsetX,
-        y: this.renderedOffsetY,
+        x: this.renderedOffsetXs[event.display],
+        y: this.renderedOffsetYs[event.display],
       },
     });
     this.SET_CHANGING_POSITION_IN_PROGRESS(true);
@@ -237,10 +252,10 @@ export class EditorService extends StatefulService<IEditorServiceState> {
   handleMouseMove(event: IMouseEvent) {
     // We don't need to adjust mac coordinates for scale factor
     const factor = byOS({ [OS.Windows]: this.windowsService.state.main.scaleFactor, [OS.Mac]: 1 });
-    const mousePosX = event.offsetX * factor - this.renderedOffsetX;
-    const mousePosY = event.offsetY * factor - this.renderedOffsetY;
+    const mousePosX = event.offsetX * factor - this.renderedOffsetXs[event.display];
+    const mousePosY = event.offsetY * factor - this.renderedOffsetYs[event.display];
 
-    const converted = this.convertScalarToBaseSpace(mousePosX, mousePosY);
+    const converted = this.convertScalarToBaseSpace(mousePosX, mousePosY, event.display);
 
     if (this.resizeRegion) {
       const name = this.resizeRegion.name;
@@ -454,7 +469,11 @@ export class EditorService extends StatefulService<IEditorServiceState> {
     // We don't need to adjust mac coordinates for scale factor
     const factor = byOS({ [OS.Windows]: this.windowsService.state.main.scaleFactor, [OS.Mac]: 1 });
 
-    const mouse = this.convertVectorToBaseSpace(event.offsetX * factor, event.offsetY * factor);
+    const mouse = this.convertVectorToBaseSpace(
+      event.offsetX * factor,
+      event.offsetY * factor,
+      event.display,
+    );
 
     const box = { x, y, width, height };
 
@@ -482,6 +501,9 @@ export class EditorService extends StatefulService<IEditorServiceState> {
    * given source
    */
   isOverSource(event: IMouseEvent, source: SceneItem) {
+    const display = source.display ?? 'horizontal';
+    if (event.display !== display) return false;
+
     const rect = new ScalableRectangle(source.rectangle);
     rect.normalize();
 
@@ -502,6 +524,8 @@ export class EditorService extends StatefulService<IEditorServiceState> {
   isOverResize(event: IMouseEvent) {
     if (this.activeSources.length > 0) {
       return this.resizeRegions.find(region => {
+        const display = region.item.display ?? 'horizontal';
+        if (event.display !== display) return false;
         return this.isOverBox(event, region.x, region.y, region.width, region.height);
       });
     }
@@ -512,20 +536,20 @@ export class EditorService extends StatefulService<IEditorServiceState> {
   // Size (width & height) is a scalar value, and
   // only needs to be scaled when converting between
   // spaces.
-  convertScalarToBaseSpace(x: number, y: number) {
+  convertScalarToBaseSpace(x: number, y: number, display: TDisplayType = 'horizontal') {
     return {
-      x: (x * this.baseWidth) / this.renderedWidth,
-      y: (y * this.baseHeight) / this.renderedHeight,
+      x: (x * this.baseResolutions[display].baseWidth) / this.renderedWidths[display],
+      y: (y * this.baseResolutions[display].baseHeight) / this.renderedHeights[display],
     };
   }
 
   // Position is a vector value. When converting between
   // spaces, we have to add positional offsets.
-  convertVectorToBaseSpace(x: number, y: number) {
-    const movedX = x - this.renderedOffsetX;
-    const movedY = y - this.renderedOffsetY;
+  convertVectorToBaseSpace(x: number, y: number, display?: TDisplayType) {
+    const movedX = x - this.renderedOffsetXs[display];
+    const movedY = y - this.renderedOffsetYs[display];
 
-    return this.convertScalarToBaseSpace(movedX, movedY);
+    return this.convertScalarToBaseSpace(movedX, movedY, display);
   }
 
   // getters
@@ -551,12 +575,8 @@ export class EditorService extends StatefulService<IEditorServiceState> {
     return this.scenesService.views.activeScene;
   }
 
-  get baseWidth() {
-    return this.videoService.baseWidth;
-  }
-
-  get baseHeight() {
-    return this.videoService.baseHeight;
+  get baseResolutions() {
+    return this.videoSettingsService.baseResolutions;
   }
 
   // Using a computed property since it is cached
@@ -574,7 +594,11 @@ export class EditorService extends StatefulService<IEditorServiceState> {
     const renderedRegionRadius = 5;
     // We don't need to adjust mac coordinates for scale factor
     const factor = byOS({ [OS.Windows]: this.windowsService.state.main.scaleFactor, [OS.Mac]: 1 });
-    const regionRadius = (renderedRegionRadius * factor * this.baseWidth) / this.renderedWidth;
+    const regionRadius =
+      (renderedRegionRadius *
+        factor *
+        this.baseResolutions[item.display ?? 'horizontal'].baseWidth) /
+      this.renderedWidths[item.display ?? 'horizontal'];
     const width = regionRadius * 2;
     const height = regionRadius * 2;
 

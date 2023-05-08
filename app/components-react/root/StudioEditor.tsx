@@ -6,14 +6,24 @@ import cx from 'classnames';
 import Display from 'components-react/shared/Display';
 import { $t } from 'services/i18n';
 import { ERenderingMode } from '../../../obs-api';
+import { TDisplayType } from 'services/settings-v2';
 
 export default function StudioEditor() {
-  const { WindowsService, CustomizationService, EditorService, TransitionsService } = Services;
+  const {
+    WindowsService,
+    CustomizationService,
+    EditorService,
+    TransitionsService,
+    ScenesService,
+    VideoSettingsService,
+  } = Services;
   const v = useVuex(() => ({
     hideStyleBlockers: WindowsService.state.main.hideStyleBlockers,
     performanceMode: CustomizationService.state.performanceMode,
     cursor: EditorService.state.cursor,
     studioMode: TransitionsService.state.studioMode,
+    activeSceneId: ScenesService.views.activeSceneId,
+    hasAdditionalContexts: VideoSettingsService.hasAdditionalContexts,
   }));
   const displayEnabled = !v.hideStyleBlockers && !v.performanceMode;
   const placeholderRef = useRef<HTMLDivElement>(null);
@@ -75,7 +85,7 @@ export default function StudioEditor() {
   // need to be redefined. It also ensures a single closure that never
   // changes for the moveInFlight piece of the mouseMove handler.
   const eventHandlers = useMemo(() => {
-    function getMouseEvent(event: React.MouseEvent) {
+    function getMouseEvent(event: React.MouseEvent, display?: TDisplayType) {
       return {
         offsetX: event.nativeEvent.offsetX,
         offsetY: event.nativeEvent.offsetY,
@@ -87,44 +97,46 @@ export default function StudioEditor() {
         metaKey: event.metaKey,
         button: event.button,
         buttons: event.buttons,
+        display,
       };
     }
 
     let moveInFlight = false;
     let lastMoveEvent: React.MouseEvent | null = null;
 
-    function onMouseMove(event: React.MouseEvent) {
+    function onMouseMove(event: React.MouseEvent, display: TDisplayType) {
       if (moveInFlight) {
         lastMoveEvent = event;
         return;
       }
 
       moveInFlight = true;
-      EditorService.actions.return.handleMouseMove(getMouseEvent(event)).then(() => {
+      EditorService.actions.return.handleMouseMove(getMouseEvent(event, display)).then(() => {
         moveInFlight = false;
 
         if (lastMoveEvent) {
-          onMouseMove(lastMoveEvent);
+          onMouseMove(lastMoveEvent, display);
           lastMoveEvent = null;
         }
       });
     }
 
     return {
-      onOutputResize(rect: IRectangle) {
-        EditorService.actions.handleOutputResize(rect);
+      onOutputResize(rect: IRectangle, display: TDisplayType) {
+        console.log('rect ', rect);
+        EditorService.actions.handleOutputResize(rect, display);
       },
 
-      onMouseDown(event: React.MouseEvent) {
-        EditorService.actions.handleMouseDown(getMouseEvent(event));
+      onMouseDown(event: React.MouseEvent, display: TDisplayType) {
+        EditorService.actions.handleMouseDown(getMouseEvent(event, display));
       },
 
       onMouseUp(event: React.MouseEvent) {
         EditorService.actions.handleMouseUp(getMouseEvent(event));
       },
 
-      onMouseEnter(event: React.MouseEvent) {
-        EditorService.actions.handleMouseEnter(getMouseEvent(event));
+      onMouseEnter(event: React.MouseEvent, display: TDisplayType) {
+        EditorService.actions.handleMouseEnter(getMouseEvent(event, display));
       },
 
       onMouseDblClick(event: React.MouseEvent) {
@@ -154,24 +166,33 @@ export default function StudioEditor() {
             <div
               className={cx(styles.studioEditorDisplayContainer, 'noselect')}
               style={{ cursor: v.cursor }}
-              onMouseDown={eventHandlers.onMouseDown}
+              onMouseDown={(event: React.MouseEvent) =>
+                eventHandlers.onMouseDown(event, 'horizontal')
+              }
               onMouseUp={eventHandlers.onMouseUp}
-              onMouseEnter={eventHandlers.onMouseEnter}
-              onMouseMove={eventHandlers.onMouseMove}
+              onMouseEnter={(event: React.MouseEvent) =>
+                eventHandlers.onMouseEnter(event, 'horizontal')
+              }
+              onMouseMove={(event: React.MouseEvent) =>
+                eventHandlers.onMouseMove(event, 'horizontal')
+              }
               onDoubleClick={eventHandlers.onMouseDblClick}
               onContextMenu={eventHandlers.onContextMenu}
             >
               <Display
                 drawUI={true}
                 paddingSize={10}
-                onOutputResize={eventHandlers.onOutputResize}
+                onOutputResize={(rect: IRectangle) =>
+                  eventHandlers.onOutputResize(rect, 'horizontal')
+                }
                 renderingMode={ERenderingMode.OBS_MAIN_RENDERING}
                 sourceId={v.studioMode ? studioModeTransitionName : undefined}
+                type="horizontal"
               />
             </div>
             {v.studioMode && (
               <div className={styles.studioModeDisplayContainer}>
-                <Display paddingSize={10} />
+                <Display paddingSize={10} type="horizontal" />
               </div>
             )}
           </div>
